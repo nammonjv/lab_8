@@ -22,6 +22,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h> //sprintf print u bon tua prae
+#include <string.h> //strlen wat kwam yaw string
 
 /* USER CODE END Includes */
 
@@ -43,7 +45,8 @@
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-
+char TxDataBuffer[32] = {0};
+char RxDataBuffer[32] = {0};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -90,12 +93,37 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  {
+	  char temp[]="HELLO WORLD\r\n type something to test\r\n";
+
+	  HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	 // UARTReceiveAndResponsePolling(); //tua yang tee mai dee
+	  HAL_UART_Receive_IT(&huart2, (uint8_t*)RxDataBuffer, 32);
+
+	  /*int16_t inputchar = UARTReceiveIT();
+	  if(inputchar!=-1) //if = -1 = mee kor moon mhai kaw ma
+	  {
+		  sprintf(TxDataBuffer,"ReceiveChar: [%c]\r\n",inputchar);
+		  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
+	  }*/
+
+	  int16_t inputchar = UARTReceiveIT();
+	  if(inputchar!=-1)
+	  {
+		  sprintf(TxDataBuffer, "ReceivedChar:[%c]\r\n", inputchar);
+		  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
+	  }
+
+	  //simulate work load
+	  HAL_Delay(100);
+	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -214,6 +242,33 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void UARTReceiveAndResponsePolling()
+{
+	char Receive[32]={0};
+	HAL_UART_Receive(&huart2, (uint8_t*) Receive, 32, 1000); //tha arn kob thung 32 tua cha return bab mai roh 1000 ms
+	sprintf(TxDataBuffer,"Received:[%s]\r\n",Receive);
+	HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
+}
+
+int16_t UARTReceiveIT()
+{
+	static uint32_t dataPos = 0;
+	int16_t data = -1;
+	if (huart2.RxXferSize - huart2.RxXferCount != dataPos) //mhee kor moon mhai khau ma
+	{
+		data = RxDataBuffer[dataPos];
+		dataPos = (dataPos + 1)%huart2.RxXferSize;
+	}
+	return data;
+}
+
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	sprintf(TxDataBuffer,"Received:[%s]\r\n",RxDataBuffer);
+	HAL_UART_Transmit_IT(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer));
+}
+
 
 /* USER CODE END 4 */
 
