@@ -60,7 +60,16 @@ int16_t UARTReceiveIT();
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+enum _StateDisplay
+{
+	StateDisplay_Start = 0,
+	StateDisplay_MenuRoot_Print =10,
+	StateDisplay_MenuRoot_WaitInput,
+	StateDisplay_Menu1_Print =100,
+	StateDisplay_Menu1_WaitInput,
+	StateDisplay_Menu2_Print =200,
+	StateDisplay_Menu2_WaitInput
+};
 /* USER CODE END 0 */
 
 /**
@@ -94,8 +103,14 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  uint8_t STATE_Display = 0;
+  uint8_t Sclk[2] = {0};
+  int16_t delay = 100;
+  int16_t freq = 5;
+  int8_t mode = 0;
+
   {
-	  char temp[]="HELLO WORLD\r\n type something to test\r\n";
+	  char temp[]="HELLO WORLD\r\n";
 
 	  HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
   }
@@ -107,24 +122,249 @@ int main(void)
   {
 	 // UARTReceiveAndResponsePolling(); //tua yang tee mai dee
 	  HAL_UART_Receive_IT(&huart2, (uint8_t*)RxDataBuffer, 32);
+	  //HAL_UART_Receive(&huart2, (uint8_t*)RxDataBuffer, 32, 10);
+	  int16_t inputchar = UARTReceiveIT();
 
-	  /*int16_t inputchar = UARTReceiveIT();
-	  if(inputchar!=-1) //if = -1 = mee kor moon mhai kaw ma
+	  /*if(inputchar!=-1) //if = -1 = mee kor moon mhai kaw ma
+	  	  {
+	  		  sprintf(TxDataBuffer,"ReceiveChar: [%c]\r\n",inputchar);
+	  		  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
+	  	  }*/
+	  switch (STATE_Display)
+	  {
+	  case StateDisplay_Start:
+	        STATE_Display = StateDisplay_MenuRoot_Print;
+	        break;
+	  case StateDisplay_MenuRoot_Print: //display one time state
+	  	  {
+	  		  char temp[]="************************\r\n Press 0 to enter LED Control\r\n Press 1 to enter Button status\r\n************************\r\n";
+	  		  HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
+	  	  }
+	        STATE_Display = StateDisplay_MenuRoot_WaitInput;
+	        break;
+	  case StateDisplay_MenuRoot_WaitInput:
+		  switch(inputchar)
+		  {
+		  case -1:
+			  //No input
+			  break;
+		  case '0':
+	  	  	  {
+	  	  		  char temp[]="You press [0]\r\n";
+	  	  		  HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
+	  	  	  }
+	  	  	  STATE_Display = StateDisplay_Menu1_Print;
+			  break;
+		  case '1':
+		  	  {
+		  	  	  char temp[]="You press [1]\r\n";
+		  	  	  HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
+		  	  }
+		  	  STATE_Display = StateDisplay_Menu2_Print;
+			  break;
+		  default:
+			  if(inputchar!=-1) //if = -1 = mee kor moon mhai kaw ma
+			  	  {
+			  		  sprintf(TxDataBuffer,"You press [%c]\r\n",inputchar);
+			  		  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
+			  		{
+			  			char temp[]="Pls press 0 or 1\r\n";
+			  			HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
+			  		}
+
+			  	  }
+			  inputchar = -1;
+		  	  STATE_Display = StateDisplay_MenuRoot_WaitInput;
+		  	  break;
+		  }
+		  break;
+
+	  case StateDisplay_Menu1_Print:
+		  	  {
+		  		 char temp[]="************************\r\nWelcome to LED control menu\r\n Press a: Speed up 1 Hz \r\n";
+		  	  	 HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
+		  	  	 char temp2[] = " Press s: Speed down 1 Hz\r\n Press d: On/Off\r\n Press x: Back\r\n************************\r\n";
+		  	  	 HAL_UART_Transmit(&huart2, (uint8_t*)temp2,strlen(temp2),10);
+		  	  }
+		  	  STATE_Display = StateDisplay_Menu1_WaitInput;
+		  	  break;
+
+	  case StateDisplay_Menu1_WaitInput:
+			  switch(inputchar)
+			  {
+			  case -1:
+			  	  //No input
+				  break;
+			  case 'a':
+				  if(mode==0)
+				  {
+				  freq+=1;
+				  delay=1000/(freq*2);
+		  	  	  {
+		  	  		  char temp[]="You press [a]\r\nSpeed Up\r\n";
+		  	  		  HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
+		  	  	  }
+		  	  	  {
+					  sprintf(TxDataBuffer,"Now frequency is [%d] Hz\r\n",freq);
+					  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
+		  	  	  }
+				  sprintf(TxDataBuffer,"delay [%d]\r\n",delay);
+				  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
+				  }
+
+		  	  	  STATE_Display = StateDisplay_Menu1_WaitInput;
+				  break;
+			  case 's':
+				  if(mode==0)
+				  {
+			  	  {
+			  	  	  char temp[]="You press [s]\r\nSpeed down\r\n";
+			  	  	  HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
+			  	  }
+				  if(freq!=0)
+				  {
+					  freq-=1;
+					  if(freq!=0)
+					  {
+						  delay=1000/(freq*2);
+					  }
+				  }
+				  if(freq==0)
+				  {
+					  char temp[]="Can't decrease more frequency\r\n";
+					  HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
+				  }
+				  sprintf(TxDataBuffer,"Now frequency is [%d] Hz\r\n",freq);
+				  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
+				  sprintf(TxDataBuffer,"delay [%d] \r\n",delay);
+				  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
+				  }
+
+			  	  STATE_Display = StateDisplay_Menu1_WaitInput;
+				  break;
+			  case 'd':
+			  	  {
+			  	  	  char temp[]="You press [d]\r\n";
+			  	  	  HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
+			  	  }
+			  	  if(mode==0)
+			  	  {
+			  		  mode=1;
+			  		{
+			  			char temp[]="LED Off\r\n";
+			  			HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
+			  		}
+			  	  }
+			  	  else
+			  	  {
+			  		  mode=0;
+				  		{
+				  			char temp[]="LED On\r\n";
+				  			HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
+				  		}
+			  	  }
+			  	//add something make led con
+			  	  STATE_Display = StateDisplay_Menu1_WaitInput;
+				  break;
+			  case 'x':
+			  	  {
+			  	  	  char temp[]="You press [x]\r\n";
+			  	  	  HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
+			  	  }
+			  	//add something make led con
+			  	  STATE_Display = StateDisplay_MenuRoot_Print;
+				  break;
+			  default:
+				  if(inputchar!=-1) //if = -1 = mee kor moon mhai kaw ma
+				  {
+				  	sprintf(TxDataBuffer,"You press [%c]\r\nPls press button in menu\r\n",inputchar);
+				  	HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
+
+				  }
+				  inputchar = -1;
+				  STATE_Display = StateDisplay_Menu1_WaitInput;
+			  	  break;
+			  }
+			  break;
+
+		  case StateDisplay_Menu2_Print:
+	  	  	  {
+	  	  		  char temp[]="************************\r\nWelcome to Button status menu\r\n Press x: back\r\n************************\r\n";
+	  	  		  HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
+	  	  	  }
+	  	  	  STATE_Display = StateDisplay_Menu2_WaitInput;
+	  	  break;
+
+		  case StateDisplay_Menu2_WaitInput:
+			  switch(inputchar)
+			  {
+			  case -1:
+				  Sclk[0] = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
+				  if(Sclk[0]!=Sclk[1])
+				  {
+					  if(Sclk[0] == SET)
+					  {
+						  {
+						  	char temp[]="Button status: Unpress\r\n";
+						  	HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
+						  }
+					  }
+					  else if(Sclk[0]==RESET)
+					  {
+						  {
+						  	char temp[]="Button status: Press\r\n";
+						  	HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
+						  }
+					  }
+				  }
+				  else
+				  {
+					  //Do nothing
+				  }
+				  Sclk[1]=Sclk[0];
+				  STATE_Display = StateDisplay_Menu2_WaitInput;
+				  break;
+			  case 'x':
+			  	  {
+			  		  char temp[]="You press [x]\r\n";
+			  		  HAL_UART_Transmit(&huart2, (uint8_t*)temp,strlen(temp),10);
+			  	  }
+			  		//add something make led con
+			  	  STATE_Display = StateDisplay_MenuRoot_Print;
+			  	  break;
+			  default:
+			  	if(inputchar!=-1) //if = -1 = mee kor moon mhai kaw ma
+			  	{
+			  		sprintf(TxDataBuffer,"You press [%c]\r\nPls press button in menu\r\n",inputchar);
+			  		HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
+			  	}
+			  	inputchar = -1;
+			  	STATE_Display = StateDisplay_Menu2_WaitInput;
+			  	break;
+			  }
+
+
+
+	  }
+	  //int16_t inputchar = UARTReceiveIT();
+	  /*if(inputchar!=-1) //if = -1 = mee kor moon mhai kaw ma
 	  {
 		  sprintf(TxDataBuffer,"ReceiveChar: [%c]\r\n",inputchar);
 		  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
 	  }*/
 
-	  int16_t inputchar = UARTReceiveIT();
-	  if(inputchar!=-1)
-	  {
-		  sprintf(TxDataBuffer, "ReceivedChar:[%c]\r\n", inputchar);
-		  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-	  }
+
 
 	  //simulate work load
-	  HAL_Delay(100);
-	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+	  if(freq!=0&mode ==0)
+	  {
+		  HAL_Delay(delay);
+		  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+	  }
+	  else if(mode==1)
+	  {
+		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, RESET);
+	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -266,8 +506,8 @@ int16_t UARTReceiveIT()
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	sprintf(TxDataBuffer,"Received:[%s]\r\n",RxDataBuffer);
-	HAL_UART_Transmit_IT(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer));
+	//sprintf(TxDataBuffer,"Received:[%s]\r\n",RxDataBuffer);
+	//HAL_UART_Transmit_IT(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer));
 }
 
 
